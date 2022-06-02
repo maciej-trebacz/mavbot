@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>MavBot</title>
+</head>
+
+<body>
+  <h2>4-8Vote Bot setup</h2>
+  <p>Use the buttons below to fetch Twitch API tokens for the bot to work correctly.</p>
+  <p><a class="pure-button pure-button-primary"
+      href="https://id.twitch.tv/oauth2/authorize?client_id={{twitchSettings.clientId}}&redirect_uri={{redirectUri}}/twitch/authorize/api&response_type=code&scope=chat:read+chat:edit+bits:read+channel:read:redemptions+channel_subscriptions">
+      Get permissions for channel owner
+    </a></p>
+  <p><a class="pure-button pure-button-primary"
+      href="https://www.streamlabs.com/api/v1.0/authorize?client_id={{streamlabsSettings.clientId}}&redirect_uri={{redirectUri}}/streamlabs/authorize&response_type=code&scope=alerts.create+alerts.write+socket.token">
+      Get permissions for Streamlabs
+    </a></p>
+  <p><a class="pure-button"
+      href="https://id.twitch.tv/oauth2/authorize?client_id=olajk4ttxdf1xbxb1p6erlam9zkwhy&redirect_uri={{redirectUri}}/save/chatbot&response_type=code&scope=chat:read+chat:edit">
+      Get permissions for chat bot
+    </a></p>
+</body>
+
+</html>
