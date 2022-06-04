@@ -90,8 +90,6 @@ export class TwitchService {
     this.logger.log(`Connecting to PubSub`);
     this.pubSubClient = new PubSubClient();
     await this.pubSubClient.registerUserListener(apiAuthProvider);
-    this.listeners.bits = await this.pubSubClient.onBits(this.user.id, this.onBits.bind(this));
-    this.listeners.pointReward = await this.pubSubClient.onRedemption(this.user.id, this.onPointReward.bind(this));
 
     this.logger.log(`Connecting to Twitch chat`);
     this.chatClient = new ChatClient({authProvider: chatAuthProvider || apiAuthProvider, channels: [channelId]});

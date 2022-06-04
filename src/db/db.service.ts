@@ -88,7 +88,7 @@ export class DbService {
     return col.where(field, operator as WhereFilterOp, value);
   }
 
-  async find(collection: string, query: string): Promise<unknown[] | null> {
+  async find(collection: string, query: string): Promise<any[] | null> {
     const q = this.getQuery(collection, query);
     const snapshot = await q.get();
     return snapshot.docs.map(doc => ({_id: doc.id, ...doc.data()}));
