@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DbService } from "src/db";
 import { TwitchService } from 'src/twitch';
-import { ChatUser } from '@twurple/chat/lib';
 import { Listener } from '@d-fischer/typed-event-emitter/lib';
+import { evaluate } from 'mathjs';
 
 type TriggerOrActionFn = (this: {
   dbService: DbService, 
@@ -43,7 +43,7 @@ const actionFns: TriggerOrActionFnsMap = {
   async chat_say({text}) {
     this.twitchService.sendChatMessage(text);
   },
-  async fetch_value({key}) {
+  async fetch_value({key, defaultValue}) {
     const docs = await this.dbService.find(`channels/${this.channelId}/data`, `key == ${key}`)
     if (docs && docs.length > 0) {
       this.logger.log(`Found value for key '${key}': '${docs[0].value}'`)
@@ -52,7 +52,9 @@ const actionFns: TriggerOrActionFnsMap = {
       }
     } else {
       this.logger.warn(`Key '${key}' not found while trying to fetch data`)
-      return {}
+      return {
+        value: defaultValue
+      }
     }
   },
   async store_value({key, value}) {
@@ -68,7 +70,7 @@ const actionFns: TriggerOrActionFnsMap = {
   // Variable parsing - add math functions, reading subfields:
   // {var + 1}
   // {var * 2}
-  // {var - var2}
+  // {var1 - var2}
   // {var.field}
   // Use Math.js for that
 }
@@ -104,8 +106,8 @@ export class EventService {
   async init(channelId: string) {
     this.channelId = channelId;
 
-    this.dbListener = this.dbService.subscribeCollection(`channels/${channelId}/events`, snapshot => {
-      snapshot.docChanges().forEach(doc => {
+    this.dbListener = this.dbService.subscribeCollection(`channels/${channelId}/events`, async snapshot => {
+      for (const doc of snapshot.docChanges()) {
         const event = doc.doc.data() as Event;
 
         // Unsubscribe from all active listeners for this event
@@ -121,43 +123,73 @@ export class EventService {
 
         // Create new listeners for this event
         if (doc.type === 'added' || doc.type === 'modified') {
-          this.subscribe(doc.doc.id, event);
+          await this.subscribe(doc.doc.id, event);
         }
-      })
+      }
     });
   }
 
-  subscribe(id: string, event: Event) {
+  async subscribe(id: string, event: Event) {
     this.eventListeners[id] = [];
     this.logger.log("Subscribing to event: " + event.name);
 
     // Check if any trigger is fired
-    event.triggers.forEach(async trigger => {
+    for (const trigger of event.triggers) {
       if (triggerFns[trigger.type]) {
 
         // Create a context for variables local to this trigger and populate it with event options and populate it with event options
         const context = {};
+        // FIXME: the trigger contains previously declared variables?
         const triggerOptions = Object.assign({}, trigger);
         const {modOnly, broadcasterOnly, subscriberOnly} = event;
         Object.assign(triggerOptions, {modOnly, broadcasterOnly, subscriberOnly})
 
-        const listener = await triggerFns[trigger.type].call(this, triggerOptions, (args: any) => {
+        const listener = await triggerFns[trigger.type].call(this, triggerOptions, async (args: any) => {
           this.logger.log(`Event [${event.name}] triggered by ${JSON.stringify(trigger)} with args: ${JSON.stringify(args)}`);
 
           // Store variables from the trigger in the context
           Object.assign(context, args);
-          event.actions.forEach(async action => {
+          for (const action of event.actions) {
             const returnArgs = await this.parseAction(action, context);
 
             // Store action results in the context
             if (returnArgs && typeof returnArgs === 'object') {
               Object.assign(context, returnArgs);
             }
-          })
+          }
         });
         this.eventListeners[id].push(listener);
       }
-    })
+    }
+  }
+
+  parseVariables(fieldValue: string, context) {
+    let tempValue = fieldValue;
+    for (let variable in context) {
+      const arrayRegexp = new RegExp('{(.*?)\\b' + variable + '\\.(\\d+)(.*?)}', 'i'); // fix this so it won't replace 'message' in {messageParams}
+      const varRegexp = new RegExp('{(.*?)\\b' + variable + '\\b(.*?)}', 'i');
+
+      if (arrayRegexp.test(tempValue)) {
+        const index = arrayRegexp.exec(tempValue)[2];
+        tempValue = tempValue.replace(arrayRegexp, '{$1' + context[variable][index] + '$3}')
+      }
+      else if (varRegexp.test(tempValue)) {
+        tempValue = tempValue.replace(varRegexp, '{$1' + context[variable] + '$2}')
+      }
+    }
+
+    let matches;
+    const expressionRegex = /{([^}]+)}/g;
+    while (matches = expressionRegex.exec(tempValue)) {
+      try {
+        const result = evaluate(matches[1]);
+        tempValue = tempValue.replace(/{([^}]+)}/, result)
+      } catch {
+        tempValue = tempValue.replace(/{([^}]+)}/, '$1');
+      }
+    }
+
+    return tempValue;
   }
 
   async parseAction(action: EventActionOrTrigger, context) {
@@ -170,23 +202,9 @@ export class EventService {
       if (typeof actionOptions[field] !== 'string') continue;
 
       // Variable substitution in action parameters
-      for (let variable in context) {
-        const arrayRegexp = new RegExp(`{${variable}\.(\\d+)}`);
-        if (actionOptions[field].indexOf(`{${variable}}`) >= 0) {
-
-          // Simple variable substitution (eg. {variable})
-          let value = context[variable];
-          if (typeof value === 'object' && value.length > 0) value = value.join(' ');
-          actionOptions[field] = actionOptions[field].replace(`{${variable}}`, context[variable])
-        } else if (arrayRegexp.test(actionOptions[field])) {
-
-          // Substitution for array elements (eg. {variable.2})
-          const index = arrayRegexp.exec(actionOptions[field])[1];
-          actionOptions[field] = actionOptions[field].replace(`{${variable}.${index}}`, context[variable][index])
-        }
-      }
+      actionOptions[field] = this.parseVariables(actionOptions[field], context)
     }
-    this.logger.log(`Executing action: ${JSON.stringify(actionOptions)}`);
-    return await actionFns[action.type].call(this, actionOptions);
+    this.logger.log(`Executing action: ${JSON.stringify(actionOptions)} with context ${JSON.stringify(context)}`);
+    return actionFns[action.type].call(this, actionOptions);
   }
 }

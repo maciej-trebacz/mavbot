@@ -34,6 +34,7 @@
     "firebase-admin": "^10.2.0",
     "hbs": "^4.2.0",
     "ky": "^0.30.0",
+    "mathjs": "^10.6.1",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^7.2.0",
