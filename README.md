@@ -5,12 +5,14 @@ To run locally and watch for file changes just type `yarn start:dev`.
 ## TODO
 
 * Triggers
+  * bits, subs, donations
+  * point rewards
+  * hype train
   * stream start/stop
   * raid
   * first message (ever / per stream)
-* Variable parsing
-  * object fields
-  * math.js
+* Actions
+  * alerts
 * UI
   * authenticating user using Twitch login
   * adding/removing events

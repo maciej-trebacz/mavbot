@@ -2,14 +2,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DbService } from "src/db";
 import { TwitchService } from 'src/twitch';
 import { Listener } from '@d-fischer/typed-event-emitter/lib';
+import { triggerFns } from './triggers';
+import { actionFns } from './actions';
 import { evaluate } from 'mathjs';
 
 type TriggerOrActionFn = (this: {
-  dbService: DbService, 
-  twitchService: TwitchService, 
+  dbService: DbService,
+  twitchService: TwitchService,
   channelId: string,
   logger: Logger,
 }, ...args: any[]) => void;
+
+export interface TriggerOrActionFnsMap {
+  [key: string]: TriggerOrActionFn;
+}
 
 interface EventListenerMap {
   [key: string]: Listener[];
@@ -17,7 +23,7 @@ interface EventListenerMap {
 
 interface EventActionOrTrigger {
   type: string;
-  params: any[];
+  [key: string]: any;
 }
 
 interface Event {
@@ -29,71 +35,6 @@ interface Event {
   subscriberOnly?: boolean;
 }
 
-interface TriggerOrActionFnsMap {
-  [key: string]: TriggerOrActionFn;
-}
-
-/* Map of available ACTION functions */
-const actionFns: TriggerOrActionFnsMap = {
-  async random_number({min = 0, max}) {
-    return {
-      randomNumber: Math.ceil(parseInt(min) + Math.random() * parseInt(max) - parseInt(min))
-    }
-  },
-  async chat_say({text}) {
-    this.twitchService.sendChatMessage(text);
-  },
-  async fetch_value({key, defaultValue}) {
-    const docs = await this.dbService.find(`channels/${this.channelId}/data`, `key == ${key}`)
-    if (docs && docs.length > 0) {
-      this.logger.log(`Found value for key '${key}': '${docs[0].value}'`)
-      return {
-        value: docs[0].value
-      }
-    } else {
-      this.logger.warn(`Key '${key}' not found while trying to fetch data`)
-      return {
-        value: defaultValue
-      }
-    }
-  },
-  async store_value({key, value}) {
-    const docPrefix = `channels/${this.channelId}/data`;
-    const docs = await this.dbService.find(docPrefix, `key == ${key}`)
-    if (docs && docs.length > 0) {
-      await this.dbService.update(`${docPrefix}/${docs[0]._id}`, {value})
-    } else {
-      await this.dbService.insert(docPrefix, {key, value})
-    }
-  }
-
-  // Variable parsing - add math functions, reading subfields:
-  // {var + 1}
-  // {var * 2}
-  // {var1 - var2}
-  // {var.field}
-  // Use Math.js for that
-}
-
-/* Map of available TRIGGER functions */
-const triggerFns: TriggerOrActionFnsMap = {
-  chat_message({match, modOnly}, callback: (args: any) => void) {
-    return this.twitchService.onChatMessage((_, __, message, msg) => {
-      const regexp = new RegExp(match);
-      if (regexp.test(message)) {
-        if (modOnly && !(msg.userInfo.isMod || msg.userInfo.isBroadcaster)) {
-          this.twitchService.sendChatMessage("Sorry, you're not authorized to use this command!");
-          return;
-        }
-        const matches = regexp.exec(message);
-        const messageParams = matches.slice(1);
-        callback({user: msg.userInfo.displayName, message, messageParams})
-      }
-    })
-  }
-  // TODO: bits, donations, subs, point rewards, hype train
-}
-
 @Injectable()
 export class EventService {
   private channelId: string;
@@ -101,7 +42,7 @@ export class EventService {
   private dbListener: () => void;
   private eventListeners: EventListenerMap = {};
 
-  constructor(private dbService: DbService, private twitchService: TwitchService) {}
+  constructor(private dbService: DbService, private twitchService: TwitchService) { }
 
   async init(channelId: string) {
     this.channelId = channelId;
@@ -141,8 +82,8 @@ export class EventService {
         const context = {};
         // FIXME: the trigger contains previously declared variables?
         const triggerOptions = Object.assign({}, trigger);
-        const {modOnly, broadcasterOnly, subscriberOnly} = event;
-        Object.assign(triggerOptions, {modOnly, broadcasterOnly, subscriberOnly})
+        const { modOnly, broadcasterOnly, subscriberOnly } = event;
+        Object.assign(triggerOptions, { modOnly, broadcasterOnly, subscriberOnly })
 
         const listener = await triggerFns[trigger.type].call(this, triggerOptions, async (args: any) => {
           this.logger.log(`Event [${event.name}] triggered by ${JSON.stringify(trigger)} with args: ${JSON.stringify(args)}`);
@@ -163,33 +104,54 @@ export class EventService {
     }
   }
 
-  parseVariables(fieldValue: string, context) {
-    let tempValue = fieldValue;
-    for (let variable in context) {
-      const arrayRegexp = new RegExp('{(.*?)\\b' + variable + '\\.(\\d+)(.*?)}', 'i'); // fix this so it won't replace 'message' in {messageParams}
-      const varRegexp = new RegExp('{(.*?)\\b' + variable + '\\b(.*?)}', 'i');
+  // Parses a single variable/array item/object field and returns its value
+  parseTokenMatch(match: RegExpMatchArray, context) {
+    if (typeof context[match[1]] === 'undefined') return match[0];
+    if (typeof match[2] === 'undefined') {
+      // Simple value
+      return context[match[1]];
+    } else {
+      // Array or object
+      return context[match[1]][match[2]];
+    }
+  }
 
-      if (arrayRegexp.test(tempValue)) {
-        const index = arrayRegexp.exec(tempValue)[2];
-        tempValue = tempValue.replace(arrayRegexp, '{$1' + context[variable][index] + '$3}')
-      }
-      else if (varRegexp.test(tempValue)) {
-        tempValue = tempValue.replace(varRegexp, '{$1' + context[variable] + '$2}')
-      }
+  // Parse variable names in an expression
+  parseVariables(input: string, context) {
+    const tokenRegex = /\b([a-z]\w*)(?:\.([\w]+))?\b/gi;
+    let resultValue = '';
+    let pos = 0;
+
+    for (const match of input.matchAll(tokenRegex)) {
+      resultValue += input.substring(pos, match.index) + this.parseTokenMatch(match, context);
+      pos = match.index + match[0].length;
     }
 
-    let matches;
-    const expressionRegex = /{([^}]+)}/g;
-    while (matches = expressionRegex.exec(tempValue)) {
-      try {
-        const result = evaluate(matches[1]);
-        tempValue = tempValue.replace(/{([^}]+)}/, result)
-      } catch {
-        tempValue = tempValue.replace(/{([^}]+)}/, '$1');
-      }
+    if (pos < input.length) {
+      resultValue += input.substring(pos);
     }
 
-    return tempValue;
+    return resultValue;
+  }
+
+  // Parse strings with variables and expressions
+  parseFieldValue(fieldValue: string, context) {
+    const varRegex = /{{?\b([^}]+)\b[^}]*?}}?/g;
+    let resultValue = '';
+    let pos = 0;
+
+    for (const match of fieldValue.matchAll(varRegex)) {
+      let substitution = this.parseVariables(match[1], context);
+      if (match[0].indexOf('{{') === 0) substitution = evaluate(substitution);
+      resultValue += fieldValue.substring(pos, match.index) + substitution;
+      pos = match.index + match[0].length;
+    }
+
+    if (pos < fieldValue.length) {
+      resultValue += fieldValue.substring(pos);
+    }
+
+    return resultValue;
   }
 
   async parseAction(action: EventActionOrTrigger, context) {
@@ -197,14 +159,23 @@ export class EventService {
     const actionOptions = Object.assign({}, action);
     delete actionOptions.type;
 
-    for (let field in actionOptions) {
+    for (const field in actionOptions) {
       // Only try to parse the action parameter if it's a string
       if (typeof actionOptions[field] !== 'string') continue;
 
       // Variable substitution in action parameters
-      actionOptions[field] = this.parseVariables(actionOptions[field], context)
+      actionOptions[field] = this.parseFieldValue(actionOptions[field], context)
     }
-    this.logger.log(`Executing action: ${JSON.stringify(actionOptions)} with context ${JSON.stringify(context)}`);
-    return actionFns[action.type].call(this, actionOptions);
+    this.logger.log(`Executing action with options: ${JSON.stringify(actionOptions)} and context: ${JSON.stringify(context)}`);
+    if (!actionFns[action.type]) {
+      this.logger.error(`Action '${action.type}' does not exist, skipping...`)
+      return;
+    }
+
+    try {
+      return await actionFns[action.type].call(this, actionOptions);
+    } catch (e) {
+      this.logger.error(`Error while executing action '${action.type}': ${JSON.stringify(e)}`)
+    }
   }
 }
