@@ -46,7 +46,6 @@ describe('DbService', () => {
 
     it('should be able to find documents with a query', async () => {
       const docs = await dbService.find('test', 'field1 == value2') as TestRow[];
-      console.log("DOCS", docs);
       expect(docs.length).toBe(1);
       expect(docs[0].field2).toBe(2);
     });
