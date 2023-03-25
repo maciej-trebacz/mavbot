@@ -76,6 +76,9 @@ export class TwitchService {
     // We need separate auth providers for both chat interactions and other Twitch API calls
     const apiAuthProvider = this.getAuthProvider(this.settings.apiTokens);
     const chatAuthProvider = this.settings.chatTokens ? this.getAuthProvider(this.settings.chatTokens) : null;
+    if (chatAuthProvider) {
+      this.logger.log(`Got Chat auth token, using a separate Chat bot account`);
+    }
 
     this.apiClient = new ApiClient({authProvider: apiAuthProvider});
     try {

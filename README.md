@@ -16,6 +16,7 @@ To run locally and watch for file changes just type `yarn start:dev`.
 
 ## TODO
 
+* Streamlabs - obtaining initial token
 * Triggers
   * bits, subs, donations
   * point rewards
@@ -33,5 +34,7 @@ To run locally and watch for file changes just type `yarn start:dev`.
   * authenticating user using Twitch login
   * adding/removing events
   * viewing logs
+* AI Chatbot
+  * Implement a long-term memory for people who interact with the bot to remember them next time
 * Misc. ideas
   * Auto shout-outs

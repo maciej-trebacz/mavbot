@@ -36,15 +36,20 @@ export class StreamlabsService {
   private async fetchTokensWithData(data: string) {
     const redirectUri = this.configService.get('REDIRECT_URI') + '/streamlabs/authorize';
     const dataPrefix = `client_id=${this.settings.clientId}&client_secret=${this.settings.clientSecret}&redirect_uri=${redirectUri}&`;
-    const response = await axios.post(this.urls.token, dataPrefix + data);
-    const tokenData = {
-      accessToken: response.data.access_token,
-      refreshToken: response.data.refresh_token,
-      expiresIn:  new Date().getTime() + (response.data.expires_in * 1000)
-    };
-    this.settings.tokens = tokenData;
-    await this.settingsService.update(STREAMLABS_MODULE, this.settings);
-    this.logger.log('Updated Streamlabs tokens');
+    try {
+      const response = await axios.post(this.urls.token, dataPrefix + data);
+      const tokenData = {
+        accessToken: response.data.access_token,
+        refreshToken: response.data.refresh_token,
+        expiresIn:  new Date().getTime() + (response.data.expires_in * 1000)
+      };
+      this.settings.tokens = tokenData;
+      await this.settingsService.update(STREAMLABS_MODULE, this.settings);
+      this.logger.log('Updated Streamlabs tokens');
+    } catch (e) {
+      this.logger.error("Error while refreshing Streamlabs token", e)
+      this.logger.error(e.response.data)
+    }
   }
 
   async getFreshTokens(code: string) {
@@ -64,7 +69,8 @@ export class StreamlabsService {
   }
 
   async tokenAutoRefresh() {
-    const nextRefresh = await this.refreshTokensIfNeeded(); 
+    let nextRefresh = await this.refreshTokensIfNeeded(); 
+    if (nextRefresh < 0) nextRefresh = 5000;
     this.logger.log("Next token update in " + Math.round(nextRefresh / 1000) + " seconds")
     setTimeout(this.tokenAutoRefresh.bind(this), nextRefresh);
   }

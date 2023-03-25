@@ -31,6 +31,7 @@
     "@twurple/eventsub": "^5.1.6",
     "@twurple/pubsub": "^5.1.6",
     "axios": "^0.27.2",
+    "chatgpt": "^5.1.2",
     "firebase-admin": "^10.2.0",
     "hbs": "^4.2.0",
     "ky": "^0.30.0",

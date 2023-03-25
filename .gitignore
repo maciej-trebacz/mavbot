@@ -36,3 +36,6 @@ lerna-debug.log*
 
 # Firebase Service Account
 firebase-admin.json
+
+# Env
+.env

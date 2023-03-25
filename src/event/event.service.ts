@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DbService } from "src/db";
 import { TwitchService } from 'src/twitch';
+import { ChatGPTService } from 'src/chatgpt';
 import { Listener } from '@d-fischer/typed-event-emitter/lib';
 import { triggerFns } from './triggers';
 import { actionFns } from './actions';
@@ -9,6 +10,7 @@ import { evaluate } from 'mathjs';
 type TriggerOrActionFn = (this: {
   dbService: DbService,
   twitchService: TwitchService,
+  chatGPTService: ChatGPTService,
   channelId: string,
   logger: Logger,
 }, ...args: any[]) => void;
@@ -42,7 +44,7 @@ export class EventService {
   private dbListener: () => void;
   private eventListeners: EventListenerMap = {};
 
-  constructor(private dbService: DbService, private twitchService: TwitchService) { }
+  constructor(private dbService: DbService, private twitchService: TwitchService, private chatGPTService: ChatGPTService) { }
 
   async init(channelId: string) {
     this.channelId = channelId;

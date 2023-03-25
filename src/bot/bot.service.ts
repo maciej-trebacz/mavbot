@@ -21,7 +21,7 @@ export class BotService {
 
     await Promise.all([
       this.twitchService.init(channelId),
-      this.streamlabsService.init(channelId),
+      // this.streamlabsService.init(channelId),
     ]);
 
     await this.eventService.init(channelId)
