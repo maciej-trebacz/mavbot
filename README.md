@@ -17,13 +17,13 @@ To run locally and watch for file changes just type `yarn start:dev`.
 ## TODO
 
 * Streamlabs - obtaining initial token
+* DB - cetralise DB access, maybe define a schema?
 * Triggers
   * bits, subs, donations
   * point rewards
   * hype train
   * stream start/stop
   * raid
-  * first message (ever / per stream)
 * Actions
   * alerts
 * UI

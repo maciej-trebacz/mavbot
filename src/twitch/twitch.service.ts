@@ -117,7 +117,8 @@ export class TwitchService {
     return this.pubSubClient.onRedemption(this.user.id, listener);
   }
 
-  async sendChatMessage(text: string) {
-    await this.chatClient.say(this.channelId, text);
+  async sendChatMessage(text: string, replyTo?: TwitchPrivateMessage) {
+    this.logger.log(`Sending chat message: ${text}, replyTo: ${replyTo}`);
+    await this.chatClient.say(this.channelId, text, replyTo ? {replyTo} : undefined);
   }
 }

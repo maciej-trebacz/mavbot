@@ -6,8 +6,8 @@ export const actionFns: TriggerOrActionFnsMap = {
       randomNumber: Math.ceil(parseInt(min) + Math.random() * parseInt(max) - parseInt(min))
     }
   },
-  async chat_say({ text }) {
-    this.twitchService.sendChatMessage(text);
+  async chat_say({ text }, context) {
+    this.twitchService.sendChatMessage(text, context.msg);
   },
   async fetch_value({ key, defaultValue }) {
     const docs = await this.dbService.find(`channels/${this.channelId}/data`, `key == ${key}`)
@@ -36,9 +36,9 @@ export const actionFns: TriggerOrActionFnsMap = {
       value
     }
   },
-  async ai_response({prompt, user}) {
+  async ai_response({prompt, user}, context) {
     const message = prompt as string
     const response = await this.chatGPTService.sendMessage(user + ": " + message, user)
-    this.twitchService.sendChatMessage(response);
+    this.twitchService.sendChatMessage(response, context.msg);
   }
 }

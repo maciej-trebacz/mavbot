@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DbService } from "src/db";
 import { TwitchService } from 'src/twitch';
 import { ChatGPTService } from 'src/chatgpt';
+import { PeopleService } from 'src/people';
 import { Listener } from '@d-fischer/typed-event-emitter/lib';
 import { triggerFns } from './triggers';
 import { actionFns } from './actions';
@@ -11,9 +12,10 @@ type TriggerOrActionFn = (this: {
   dbService: DbService,
   twitchService: TwitchService,
   chatGPTService: ChatGPTService,
+  peopleService: PeopleService,
   channelId: string,
   logger: Logger,
-}, ...args: any[]) => void;
+}, args: any, context: any) => void;
 
 export interface TriggerOrActionFnsMap {
   [key: string]: TriggerOrActionFn;
@@ -44,7 +46,7 @@ export class EventService {
   private dbListener: () => void;
   private eventListeners: EventListenerMap = {};
 
-  constructor(private dbService: DbService, private twitchService: TwitchService, private chatGPTService: ChatGPTService) { }
+  constructor(private dbService: DbService, private twitchService: TwitchService, private chatGPTService: ChatGPTService, private peopleService: PeopleService ) { }
 
   async init(channelId: string) {
     this.channelId = channelId;
@@ -175,7 +177,7 @@ export class EventService {
     }
 
     try {
-      return await actionFns[action.type].call(this, actionOptions);
+      return await actionFns[action.type].call(this, actionOptions, context);
     } catch (e) {
       this.logger.error(`Error while executing action '${action.type}': ${JSON.stringify(e)}`)
     }

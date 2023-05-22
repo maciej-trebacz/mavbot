@@ -33,6 +33,7 @@ export class StreamlabsService {
 
   constructor(private configService: ConfigService, private settingsService: SettingsService) { }
 
+  // This function fetches tokens from Streamlabs API and updates the settings
   private async fetchTokensWithData(data: string) {
     const redirectUri = this.configService.get('REDIRECT_URI') + '/streamlabs/authorize';
     const dataPrefix = `client_id=${this.settings.clientId}&client_secret=${this.settings.clientSecret}&redirect_uri=${redirectUri}&`;

@@ -3,13 +3,14 @@ import { SettingsService } from 'src/settings';
 import { TwitchService } from 'src/twitch';
 import { StreamlabsService } from 'src/streamlabs';
 import { EventService } from 'src/event';
+import { PeopleService } from 'src/people';
 
 @Injectable()
 export class BotService {
   private readonly logger = new Logger(BotService.name);
 
   constructor(private settingsService: SettingsService, private twitchService: TwitchService, 
-    private streamlabsService: StreamlabsService, private eventService: EventService) {}
+    private streamlabsService: StreamlabsService, private eventService: EventService, private peopleService: PeopleService) {}
 
   async init(channelId: string) {
     try {
@@ -25,5 +26,6 @@ export class BotService {
     ]);
 
     await this.eventService.init(channelId)
+    await this.peopleService.init(channelId)
   }
 }

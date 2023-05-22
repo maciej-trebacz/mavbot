@@ -1,12 +1,5 @@
 import { TriggerOrActionFnsMap } from "./event.service";
 
-// FIXME: This set should be cleared at the beginning of each stream
-const messageAuthors = new Set<string>();
-messageAuthors.add('m4v3k')
-messageAuthors.add('yettenigma')
-messageAuthors.add('mushroomsuprise')
-messageAuthors.add('tendyourowngrave')
-
 export const triggerFns: TriggerOrActionFnsMap = {
   chat_message({ match, modOnly }, callback: (args: any) => void) {
     return this.twitchService.onChatMessage((_, __, message, msg) => {
@@ -24,15 +17,22 @@ export const triggerFns: TriggerOrActionFnsMap = {
   },
   first_chat({ modOnly }, callback: (args: any) => void) {
     return this.twitchService.onChatMessage((_, __, message, msg) => {
-      if (modOnly && !(msg.userInfo.isMod || msg.userInfo.isBroadcaster)) {
+      let firstChat = false;
+      const maxInactiveTime = 1000 * 30; // 30 seconds, FIXME: Change to 2 hours later
+      const person = this.peopleService.get(msg.userInfo.userId)
+      const lastSeen = person?.lastSeen || new Date();
+      if (!person || new Date().getTime() - person.lastSeen.getTime() > maxInactiveTime ) firstChat = true;
+
+      // Update person's last seen time and display name in the database
+      this.peopleService.update(msg.userInfo.userId, { 
+        lastSeen: new Date(),
+        displayName: msg.userInfo.displayName,
+      });
+
+      if (!firstChat || (modOnly && !(msg.userInfo.isMod || msg.userInfo.isBroadcaster))) {
         return;
       }
-      const displayNameLowercase = msg.userInfo.displayName.toLocaleLowerCase();
-      if (messageAuthors.has(displayNameLowercase)) {
-        return;
-      }
-      messageAuthors.add(displayNameLowercase);
-      callback({ user: msg.userInfo.displayName, message })
+      callback({ user: msg.userInfo.displayName, message, lastSeen })
     })
   },  
   mention({ modOnly }, callback: (args: any) => void) {
@@ -43,7 +43,7 @@ export const triggerFns: TriggerOrActionFnsMap = {
           this.twitchService.sendChatMessage("Sorry, you're not authorized to use this command!");
           return;
         }
-        callback({ user: msg.userInfo.displayName, message })
+        callback({ user: msg.userInfo.displayName, message, msg })
       }
     })
   },
