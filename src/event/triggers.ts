@@ -1,3 +1,4 @@
+import { formatDistance } from 'date-fns'
 import { TriggerOrActionFnsMap } from "./event.service";
 
 export const triggerFns: TriggerOrActionFnsMap = {
@@ -11,28 +12,23 @@ export const triggerFns: TriggerOrActionFnsMap = {
         }
         const matches = regexp.exec(message);
         const messageParams = matches.slice(1);
-        callback({ user: msg.userInfo.displayName, message, messageParams })
+        callback({ user: msg.userInfo.displayName, message, messageParams, msg })
       }
     })
   },
   first_chat({ modOnly }, callback: (args: any) => void) {
     return this.twitchService.onChatMessage((_, __, message, msg) => {
       let firstChat = false;
-      const maxInactiveTime = 1000 * 30; // 30 seconds, FIXME: Change to 2 hours later
+      const maxInactiveTime = 1000 * 60 * 240; // 4 hours
       const person = this.peopleService.get(msg.userInfo.userId)
       const lastSeen = person?.lastSeen || new Date();
+      const lastSeenRelative = person?.lastSeen ? formatDistance(person.lastSeen, new Date(), {addSuffix: true}) : "never";
       if (!person || new Date().getTime() - person.lastSeen.getTime() > maxInactiveTime ) firstChat = true;
-
-      // Update person's last seen time and display name in the database
-      this.peopleService.update(msg.userInfo.userId, { 
-        lastSeen: new Date(),
-        displayName: msg.userInfo.displayName,
-      });
 
       if (!firstChat || (modOnly && !(msg.userInfo.isMod || msg.userInfo.isBroadcaster))) {
         return;
       }
-      callback({ user: msg.userInfo.displayName, message, lastSeen })
+      callback({ user: msg.userInfo.displayName, message, msg, lastSeen, lastSeenRelative })
     })
   },  
   mention({ modOnly }, callback: (args: any) => void) {
