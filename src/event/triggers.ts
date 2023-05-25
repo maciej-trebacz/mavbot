@@ -12,7 +12,7 @@ export const triggerFns: TriggerOrActionFnsMap = {
         }
         const matches = regexp.exec(message);
         const messageParams = matches.slice(1);
-        callback({ user: msg.userInfo.displayName, message, messageParams, msg })
+        callback({ user: msg.userInfo.displayName, userId: msg.userInfo.userId, message, messageParams, msg })
       }
     })
   },
@@ -28,7 +28,7 @@ export const triggerFns: TriggerOrActionFnsMap = {
       if (!firstChat || (modOnly && !(msg.userInfo.isMod || msg.userInfo.isBroadcaster))) {
         return;
       }
-      callback({ user: msg.userInfo.displayName, message, msg, lastSeen, lastSeenRelative })
+      callback({ user: msg.userInfo.displayName, userId: msg.userInfo.userId, message, msg, lastSeen, lastSeenRelative })
     })
   },  
   mention({ modOnly }, callback: (args: any) => void) {
@@ -39,7 +39,7 @@ export const triggerFns: TriggerOrActionFnsMap = {
           this.twitchService.sendChatMessage("Sorry, you're not authorized to use this command!");
           return;
         }
-        callback({ user: msg.userInfo.displayName, message, msg })
+        callback({ user: msg.userInfo.displayName, userId: msg.userInfo.userId, message, msg })
       }
     })
   },

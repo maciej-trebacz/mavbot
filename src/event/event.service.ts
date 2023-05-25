@@ -95,7 +95,8 @@ export class EventService {
           // Store variables from the trigger in the context
           Object.assign(context, args);
           for (const action of event.actions) {
-            const returnArgs = await this.parseAction(action, context);
+            const returnArgs = await this.parseAction(action, context, event.name);
+            if (returnArgs === false) break;
 
             // Store action results in the context
             if (returnArgs && typeof returnArgs === 'object') {
@@ -158,8 +159,8 @@ export class EventService {
     return resultValue;
   }
 
-  async parseAction(action: EventActionOrTrigger, context) {
-    this.logger.log(`Parsing action: ${JSON.stringify(action)}`);
+  async parseAction(action: EventActionOrTrigger, context: any, eventName: string) {
+    this.logger.log(`Event [${eventName}] parsing action: ${JSON.stringify(action)}`);
     const actionOptions = Object.assign({}, action);
     delete actionOptions.type;
 
@@ -170,16 +171,17 @@ export class EventService {
       // Variable substitution in action parameters
       actionOptions[field] = this.parseFieldValue(actionOptions[field], context)
     }
-    this.logger.log(`Executing action with options: ${JSON.stringify(actionOptions)} and context: ${JSON.stringify(context)}`);
+    this.logger.log(`Event [${eventName}] Executing action with options: ${JSON.stringify(actionOptions)} and context: ${JSON.stringify(context)}`);
     if (!actionFns[action.type]) {
-      this.logger.error(`Action '${action.type}' does not exist, skipping...`)
+      this.logger.error(`Event [${eventName}] Action '${action.type}' does not exist, skipping...`)
       return;
     }
 
     try {
       return await actionFns[action.type].call(this, actionOptions, context);
     } catch (e) {
-      this.logger.error(`Error while executing action '${action.type}': ${JSON.stringify(e)}`)
+      this.logger.error(`Event [${eventName}] Error while executing action '${action.type}': ${e.message}`)
+      return false
     }
   }
 }

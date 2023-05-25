@@ -49,10 +49,15 @@ export class PeopleService {
   }
 
   async update(id: string, person: Person) {
-    await this.dbService.set(`channels/${this.channelId}/people/${id}`, person);
+    await this.dbService.update(`channels/${this.channelId}/people/${id}`, person);
   }
 
   get(id: string): Person {
     return this.people[id];
+  }
+
+  async set(id: string, key: string, value: any) {
+    this.people[id][key] = value;
+    await this.dbService.update(`channels/${this.channelId}/people/${id}`, { [key]: value });
   }
 }

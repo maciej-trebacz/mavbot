@@ -8,6 +8,7 @@ export const actionFns: TriggerOrActionFnsMap = {
   },
   async chat_say({ text }, context) {
     this.twitchService.sendChatMessage(text, context.msg);
+    return true;
   },
   async fetch_value({ key, defaultValue }) {
     const docs = await this.dbService.find(`channels/${this.channelId}/data`, `key == ${key}`)
@@ -21,6 +22,11 @@ export const actionFns: TriggerOrActionFnsMap = {
       return {
         value: defaultValue
       }
+    }
+  },
+  async condition({ expression, trueValue, falseValue }) {
+    return {
+      value: eval(expression) ? trueValue : falseValue
     }
   },
   async store_value({ key, value }) {
@@ -40,5 +46,17 @@ export const actionFns: TriggerOrActionFnsMap = {
     const message = prompt as string
     const response = await this.chatGPTService.sendMessage(user + ": " + message, user)
     this.twitchService.sendChatMessage(response, context.msg);
+  },
+  async person_get_value({ key }, context) {
+    const person = await this.peopleService.get(context.userId);
+    if (!person) throw Error(`Person with id ${context.userId} not found!`);
+    return {
+      value: person[key] || ''
+    }
+  },
+  async person_set_value({ key, value }, context) {
+    const person = await this.peopleService.get(context.userId);
+    if (!person) throw Error(`Person with id ${context.userId} not found!`);
+    await this.peopleService.set(context.userId, key, value);
   }
 }
