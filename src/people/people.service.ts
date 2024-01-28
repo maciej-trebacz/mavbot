@@ -41,15 +41,21 @@ export class PeopleService {
     // Update person's last seen time and display name in the database after each message
     return this.twitchService.onChatMessage((_, __, message, msg) => {
       // Delay the update to make sure all triggers still get the previous person data
-      setTimeout(async () => await this.update(msg.userInfo.userId, { 
-        lastSeen: new Date(),
-        displayName: msg.userInfo.displayName,
-      }), 100)
+      setTimeout(async () => {
+        await this.update(msg.userInfo.userId, { 
+          lastSeen: new Date(),
+          displayName: msg.userInfo.displayName,
+        }, !!this.people[msg.userInfo.userId])
+      }, 100)
     });
   }
 
-  async update(id: string, person: Person) {
-    await this.dbService.update(`channels/${this.channelId}/people/${id}`, person);
+  async update(id: string, person: Person, isExisting = true) {
+    if (isExisting) {
+      await this.dbService.update(`channels/${this.channelId}/people/${id}`, person);
+    } else {
+      await this.dbService.set(`channels/${this.channelId}/people/${id}`, person);
+    }
   }
 
   get(id: string): Person {

@@ -1,6 +1,10 @@
 import { formatDistance } from 'date-fns'
 import { TriggerOrActionFnsMap } from "./event.service";
 
+// Note: This could be rearchitected so that triggers define which listeners they need, and then the event service
+// subscribes only once to each listener and executes all triggers that depend on that listener.
+// This way we could for example stop processing listeners once a trigger has been found.
+// So for example if a first_chat was triggered we don't also trigger a mention or chat_message and send two messages.
 export const triggerFns: TriggerOrActionFnsMap = {
   chat_message({ match, modOnly }, callback: (args: any) => void) {
     return this.twitchService.onChatMessage((_, __, message, msg) => {
