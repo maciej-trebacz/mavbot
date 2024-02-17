@@ -44,8 +44,10 @@ export const actionFns: TriggerOrActionFnsMap = {
   },
   async ai_response({prompt, user}, context) {
     const message = prompt as string
-    const response = await this.chatGPTService.sendMessage(user + ": " + message, user)
-    this.twitchService.sendChatMessage(response, context.msg);
+    const response = await this.chatGPTService.sendMessage(message, user)
+    if (response) {
+      this.twitchService.sendChatMessage(response, context.msg);
+    }
   },
   async person_get_value({ key }, context) {
     const person = await this.peopleService.get(context.userId);

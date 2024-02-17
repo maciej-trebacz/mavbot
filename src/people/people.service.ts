@@ -3,9 +3,10 @@ import { DbService } from "src/db";
 import { Timestamp, QueryDocumentSnapshot, DocumentData } from '@google-cloud/firestore';
 import { TwitchService } from 'src/twitch';
 
-interface Person {
+export interface Person {
   displayName: string;
   lastSeen: Date;
+  summary?: string;
 }
 
 @Injectable()
@@ -50,12 +51,13 @@ export class PeopleService {
     });
   }
 
-  async update(id: string, person: Person, isExisting = true) {
+  async update(id: string, person: Partial<Person>, isExisting = true) {
     if (isExisting) {
       await this.dbService.update(`channels/${this.channelId}/people/${id}`, person);
     } else {
       await this.dbService.set(`channels/${this.channelId}/people/${id}`, person);
     }
+    this.people[id] = { ...this.people[id], ...person };
   }
 
   get(id: string): Person {

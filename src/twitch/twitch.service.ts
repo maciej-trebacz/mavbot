@@ -37,6 +37,7 @@ export class TwitchService {
   private user: HelixUser;
   private settings: TwitchSettings;
   private listeners: TwitchListeners = {};
+  private messageLog: TwitchPrivateMessage[] = [];
 
   private apiClient: ApiClient;
   private pubSubClient: PubSubClient;
@@ -98,7 +99,23 @@ export class TwitchService {
     this.chatClient = new ChatClient({authProvider: chatAuthProvider || apiAuthProvider, channels: [channelId]});
     await this.chatClient.connect();
 
+    // Log all messages for current session
+    this.chatClient.onMessage((_, __, ___, msg) => {
+      this.messageLog.push(msg);
+    });
+
+    // Clear message log every 15 minutes
+    const cutoffTime = 15 * 60 * 1000;
+    setInterval(() => {
+      const now = new Date();
+      this.messageLog = this.messageLog.filter(msg => now.getTime() - msg.date.getTime() < cutoffTime);
+    }, cutoffTime);
+
     this.logger.log(`Initialization complete!`);
+  }
+  
+  getMessages() {
+    return this.messageLog;
   }
 
   async onChatMessage(listener: (channel: string, user: string, message: string, msg: TwitchPrivateMessage) => void) {
